@@ -40,3 +40,11 @@ export interface MoveListProps {
   onMoveClick: (index: number) => void;
   analysis?: MoveAnalysis[];
 }
+
+export interface SummaryProps {
+  summary: string;
+}
+
+export interface CommentaryProps {
+  commentary: string;
+}

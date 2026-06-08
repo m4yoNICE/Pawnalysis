@@ -13,12 +13,12 @@ class TopMove(BaseModel):
 
 class MoveAnalysis(BaseModel):
     fen: str
-    best_move: str
+    best_move: Optional[str] = None
     evaluation: Evaluation
     top_moves: List[TopMove]
     classification: str
     symbol: str
-    commentary: str
+    commentary: Optional[str] = ""
 
 #================================
 class AnalyzeRequest(BaseModel):
