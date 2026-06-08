@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
+
+// Components
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
 import PgnInput from "@/components/chess/PgnInput";
+import Summary from "@/components/chess/Summary";
+import Commentary from "@/components/chess/Commentary";
+
+// Types & Utils
 import { parsePgn, getMoves, getFens } from "@/lib/utils/pgn";
 import Api from "@/lib/services/Api";
 import { AnalyzeResponse } from "@/lib/Types";
+
 
 const DEFAULT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -71,6 +78,12 @@ export default function GamePage() {
               analysis={analysis?.analysis}
             />
           </div>
+
+          {analysis?.analysis[currentMoveIndex]?.commentary && (
+            <Commentary commentary={analysis.analysis[currentMoveIndex].commentary} />
+          )}
+
+          {analysis?.summary && <Summary summary={analysis.summary} />}
         </div>
       </div>
     </main>

@@ -31,27 +31,55 @@ async def analyze(request: AnalyzeRequest):
     start = time.time()
     
     positions = parse_pgn(request.pgn)
+    if not positions:
+        return {"status": "ok", "analysis": [], "summary": ""}
+        
     results = []
-    cp_before = 0
+    
+    # 1. Establish the baseline evaluation using the starting position FEN
+    initial_fen = positions[0]["board_before"].fen()
+    current_analysis = analyze_position(initial_fen)
     
     for i, position in enumerate(positions):
         move_start = time.time()
-        analysis = analyze_position(position["fen"])
-        cp_after = analysis["evaluation"]["value"]
         
+        # Extract metadata from the position BEFORE the move occurred
+        eval_before = current_analysis["evaluation"]
+        is_mate_before = eval_before["type"] == "mate"
+        cp_best = 30000 if is_mate_before and eval_before["value"] > 0 else (-30000 if is_mate_before else eval_before["value"])
+        top_moves_before = current_analysis["top_moves"]
+        
+        # 2. Run engine on the position AFTER the move occurred
+        next_analysis = analyze_position(position["fen"])
+        eval_after = next_analysis["evaluation"]
+        is_mate_after = eval_after["type"] == "mate"
+        cp_after = 30000 if is_mate_after and eval_after["value"] > 0 else (-30000 if is_mate_after else eval_after["value"])
+        
+        # 3. Safely pass both context layers to the classifier
         classification, symbol = classify_move(
             position["board_before"],
             position["move"],
-            cp_before,
+            cp_best,
+            is_mate_before,
             cp_after,
-            analysis["top_moves"]
+            is_mate_after,
+            top_moves_before
         )
         
-        analysis["fen"] = position["fen"]
-        analysis["classification"] = classification
-        analysis["symbol"] = symbol
-        results.append(analysis)
-        cp_before = cp_after
+        # Build payload structure cleanly
+        move_data = {
+            "fen": position["fen"],
+            "move": position["move"].uci(),
+            "best_move": current_analysis["best_move"],
+            "evaluation": eval_after,
+            "classification": classification,
+            "symbol": symbol,
+            "top_moves": next_analysis["top_moves"]
+        }
+        results.append(move_data)
+        
+        # Shift reference frame forward for next iteration
+        current_analysis = next_analysis
         logger.info(f"Move {i+1} done in {time.time() - move_start:.2f}s")
 
     stockfish_done = time.time()
