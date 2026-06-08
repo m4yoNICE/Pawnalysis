@@ -89,3 +89,7 @@ Get a free Groq API key at https://console.groq.com
 - Stockfish binary is not committed. Download from [stockfishchess.org](https://stockfishchess.org) and place in `backend/fastapi/stockfish/`
 - Groq free tier has rate limits — commentary may fall back to a placeholder message under heavy use
 - `.env` is gitignored — never commit your API key
+
+
+
+roswell gay
