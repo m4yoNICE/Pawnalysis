@@ -37,7 +37,7 @@ Pawnalysis/
 cd backend/fastapi
 .\venv\Scripts\activate      # Windows
 # source venv/bin/activate   # Mac/Linux
-pip install -r pip-requirements.txt
+pip install -r requirements.txt
 python main.py
 ```
 API runs at `http://localhost:8000`
