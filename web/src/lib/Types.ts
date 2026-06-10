@@ -48,3 +48,10 @@ export interface SummaryProps {
 export interface CommentaryProps {
   commentary: string;
 }
+
+export interface PgnInputProps {
+  pgn: string;
+  onChange: (pgn: string) => void;
+  onAnalyze: () => void;
+  isLoading: boolean;
+}

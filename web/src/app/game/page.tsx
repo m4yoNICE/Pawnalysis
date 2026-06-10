@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Components
 import Board from "@/components/chess/Board";
@@ -14,7 +14,6 @@ import { parsePgn, getMoves, getFens } from "@/lib/utils/pgn";
 import Api from "@/lib/services/Api";
 import { AnalyzeResponse } from "@/lib/Types";
 
-
 const DEFAULT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 export default function GamePage() {
@@ -25,6 +24,18 @@ export default function GamePage() {
   const [fens, setFens] = useState<string[]>([]);
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  //update game state as PGN is edited, to allow mid-paste analysis
+  function handlePgnChange(value: string) {
+    setPgn(value);
+    if (!value.trim()) return;
+    try {
+      setFens(getFens(value));
+      setMoves(getMoves(value));
+    } catch {
+      // invalid PGN mid-paste, ignore
+    }
+  }
 
   async function handleAnalyze() {
     try {
@@ -59,7 +70,7 @@ export default function GamePage() {
           </div>
           <PgnInput
             pgn={pgn}
-            onChange={setPgn}
+            onChange={handlePgnChange}
             onAnalyze={handleAnalyze}
             isLoading={isLoading}
           />
@@ -80,7 +91,9 @@ export default function GamePage() {
           </div>
 
           {analysis?.analysis[currentMoveIndex]?.commentary && (
-            <Commentary commentary={analysis.analysis[currentMoveIndex].commentary} />
+            <Commentary
+              commentary={analysis.analysis[currentMoveIndex].commentary}
+            />
           )}
 
           {analysis?.summary && <Summary summary={analysis.summary} />}

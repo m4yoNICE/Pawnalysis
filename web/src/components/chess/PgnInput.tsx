@@ -1,11 +1,6 @@
 "use client";
+import { PgnInputProps } from "@/lib/Types";
 
-interface PgnInputProps {
-  pgn: string;
-  onChange: (pgn: string) => void;
-  onAnalyze: () => void;
-  isLoading: boolean;
-}
 
 export default function PgnInput({
   pgn,
