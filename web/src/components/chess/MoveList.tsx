@@ -1,94 +1,115 @@
 "use client";
 
-import { MoveListProps } from "@/lib/Types";
-import {
-  getClassificationColor,
-  getClassificationSymbol,
-} from "@/lib/utils/classifications";
+import { MoveListProps, MoveNode } from "@/lib/Types";
+import { getPath } from "@/lib/utils/tree";
+import { getClassificationColor } from "@/lib/utils/classifications";
 
-export default function MoveList({
-  moves,
-  currentMoveIndex,
-  onMoveClick,
-  analysis,
-}: MoveListProps) {
-  const movePairs = [];
-  for (let i = 0; i < moves.length; i += 2) {
-    movePairs.push(moves.slice(i, i + 2));
+function MoveButton({
+  node,
+  moveNumber,
+  isActive,
+  onClick,
+}: {
+  node: MoveNode;
+  moveNumber: string | null;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <span className="inline-flex items-center">
+      {moveNumber && (
+        <span className="text-[#6B6B6B] text-xs mr-1 select-none">
+          {moveNumber}
+        </span>
+      )}
+      <button
+        onClick={onClick}
+        className={`px-1.5 py-0.5 rounded font-semibold transition-colors ${
+          isActive
+            ? "bg-[#575068] text-white"
+            : "text-[#1A1A1A] hover:bg-[#E1D8EF]"
+        }`}
+      >
+        {node.san}
+        {node.analysis?.symbol && (
+          <span
+            className="ml-1 text-xs font-bold"
+            style={{
+              color: getClassificationColor(node.analysis.classification),
+            }}
+          >
+            {node.analysis.symbol}
+          </span>
+        )}
+      </button>
+    </span>
+  );
+}
+
+function renderLine(
+  startNode: MoveNode,
+  root: MoveNode,
+  currentNodeId: string,
+  onNodeClick: (id: string) => void,
+): React.ReactNode[] {
+  const elements: React.ReactNode[] = [];
+  let current = startNode;
+  let isLineStart = true;
+
+  while (current.children.length > 0) {
+    const mainChild = current.children[0];
+    const variations = current.children.slice(1);
+
+    const path = getPath(root, mainChild.id);
+    const ply = path.length - 1;
+    const isWhite = ply % 2 === 1;
+    const moveNumber = Math.ceil(ply / 2);
+    const showNumber = isWhite || isLineStart;
+
+    elements.push(
+      <MoveButton
+        key={mainChild.id}
+        node={mainChild}
+        moveNumber={showNumber ? `${moveNumber}${isWhite ? "." : "..."}` : null}
+        isActive={mainChild.id === currentNodeId}
+        onClick={() => onNodeClick(mainChild.id)}
+      />,
+    );
+
+    isLineStart = false;
+
+    for (const variation of variations) {
+      elements.push(
+        <span key={variation.id} className="text-[#6B6B6B] text-sm">
+          {" ("}
+          {renderLine(variation, root, currentNodeId, onNodeClick)}
+          {") "}
+        </span>,
+      );
+    }
+
+    current = mainChild;
   }
 
+  return elements;
+}
+
+export default function MoveList({
+  root,
+  currentNodeId,
+  onNodeClick,
+}: MoveListProps) {
+  const elements = renderLine(root, root, currentNodeId, onNodeClick);
+
   return (
-    <div className="w-full overflow-y-auto max-h-[560px]">
-      {movePairs.length === 0 && (
+    <div className="w-full overflow-y-auto max-h-[560px] p-3 leading-7">
+      {elements.length === 0 ? (
         <p className="text-sm text-[#6B6B6B] p-4 text-center">
           Paste a PGN and click Analyze to see moves.
         </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-1">{elements}</div>
       )}
-      {movePairs.map((pair, pairIndex) => (
-        <div
-          key={pairIndex}
-          className={`flex items-center text-sm ${
-            pairIndex % 2 === 0 ? "bg-white" : "bg-[#F8F7F4]"
-          }`}
-        >
-          {/* Move Number */}
-          <div className="w-10 py-2 px-2 text-[#6B6B6B] text-right text-xs select-none">
-            {pairIndex + 1}.
-          </div>
-
-          {/* White Move */}
-          <button
-            onClick={() => onMoveClick(pairIndex * 2)}
-            className={`flex-1 py-2 px-3 text-left font-semibold transition-colors ${
-              currentMoveIndex === pairIndex * 2
-                ? "bg-[#575068] text-white"
-                : "text-[#1A1A1A] hover:bg-[#E1D8EF]"
-            }`}
-          >
-            {pair[0]}
-            {analysis?.[pairIndex * 2]?.symbol && (
-              <span
-                className="ml-1 text-xs font-bold"
-                style={{
-                  color: getClassificationColor(
-                    analysis[pairIndex * 2].classification,
-                  ),
-                }}
-              >
-                {analysis[pairIndex * 2].symbol}
-              </span>
-            )}
-          </button>
-
-          {/* Black Move */}
-          {pair[1] ? (
-            <button
-              onClick={() => onMoveClick(pairIndex * 2 + 1)}
-              className={`flex-1 py-2 px-3 text-left font-semibold transition-colors ${
-                currentMoveIndex === pairIndex * 2 + 1
-                  ? "bg-[#575068] text-white"
-                  : "text-[#1A1A1A] hover:bg-[#E1D8EF]"
-              }`}
-            >
-              {pair[1]}
-              {analysis?.[pairIndex * 2 + 1]?.symbol && (
-                <span
-                  className="ml-1 text-xs font-bold"
-                  style={{
-                    color: getClassificationColor(
-                      analysis[pairIndex * 2 + 1].classification,
-                    ),
-                  }}
-                >
-                  {analysis[pairIndex * 2 + 1].symbol}
-                </span>
-              )}
-            </button>
-          ) : (
-            <div className="flex-1" />
-          )}
-        </div>
-      ))}
     </div>
   );
 }

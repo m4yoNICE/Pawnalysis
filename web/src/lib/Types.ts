@@ -1,3 +1,5 @@
+import type { Square } from "chess.js";
+
 export interface AnalyzeRequest {
   pgn: string;
   depth?: number;
@@ -30,15 +32,21 @@ export interface AnalyzeResponse {
   summary: string;
 }
 
+export interface BoardMove {
+  from: Square;
+  to: Square;
+  promotion?: string;
+}
+
 export interface BoardProps {
-  fen?: string;
+  fen: string;
+  onMove: (move: BoardMove) => boolean;
 }
 
 export interface MoveListProps {
-  moves: string[];
-  currentMoveIndex: number;
-  onMoveClick: (index: number) => void;
-  analysis?: MoveAnalysis[];
+  root: MoveNode;
+  currentNodeId: string;
+  onNodeClick: (nodeId: string) => void;
 }
 
 export interface SummaryProps {
@@ -54,4 +62,13 @@ export interface PgnInputProps {
   onChange: (pgn: string) => void;
   onAnalyze: () => void;
   isLoading: boolean;
+}
+
+export interface MoveNode {
+  id: string;
+  san: string;
+  fen: string;
+  parentId: string | null;
+  children: MoveNode[];
+  analysis?: MoveAnalysis;
 }

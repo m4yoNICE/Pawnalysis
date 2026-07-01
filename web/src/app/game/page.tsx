@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Chess } from "chess.js";
 
 // Components
 import Board from "@/components/chess/Board";
@@ -11,27 +12,38 @@ import Commentary from "@/components/chess/Commentary";
 
 // Types & Utils
 import { parsePgn, getMoves, getFens } from "@/lib/utils/pgn";
+import {
+  createRoot,
+  buildTreeFromPgn,
+  findNode,
+  attachAnalysisByFen,
+  addMoveImmutable,
+} from "@/lib/utils/tree";
 import Api from "@/lib/services/Api";
-import { AnalyzeResponse } from "@/lib/Types";
+import { AnalyzeResponse, MoveNode, BoardMove } from "@/lib/Types";
 
 const DEFAULT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 export default function GamePage() {
   const [pgn, setPgn] = useState("");
+  const [testFen, setTestFen] = useState(DEFAULT_FEN);
   const [cleanPgn, setCleanPgn] = useState("");
-  const [moves, setMoves] = useState<string[]>([]);
-  const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
-  const [fens, setFens] = useState<string[]>([]);
-  const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
+  const [root, setRoot] = useState<MoveNode>(() => createRoot(DEFAULT_FEN));
+  const [currentNodeId, setCurrentNodeId] = useState<string>(root.id);
+  const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  //update game state as PGN is edited, to allow mid-paste analysis
   function handlePgnChange(value: string) {
     setPgn(value);
     if (!value.trim()) return;
     try {
-      setFens(getFens(value));
-      setMoves(getMoves(value));
+      const newRoot = buildTreeFromPgn(
+        DEFAULT_FEN,
+        getMoves(value),
+        getFens(value),
+      );
+      setRoot(newRoot);
+      setCurrentNodeId(newRoot.id);
     } catch {
       // invalid PGN mid-paste, ignore
     }
@@ -41,12 +53,21 @@ export default function GamePage() {
     try {
       const formatted = parsePgn(pgn);
       setCleanPgn(formatted);
-      setFens(getFens(pgn));
-      setMoves(getMoves(pgn));
+
+      const newRoot = buildTreeFromPgn(
+        DEFAULT_FEN,
+        getMoves(pgn),
+        getFens(pgn),
+      );
+      setRoot(newRoot);
+      setCurrentNodeId(newRoot.id);
 
       setIsLoading(true);
-      const result = await Api.analyzeGame(formatted);
-      setAnalysis(result);
+      const result: AnalyzeResponse = await Api.analyzeGame(formatted);
+
+      const annotatedRoot = attachAnalysisByFen(newRoot, result.analysis);
+      setRoot(annotatedRoot);
+      setSummary(result.summary);
     } catch (e) {
       console.error("Error:", e);
     } finally {
@@ -54,13 +75,38 @@ export default function GamePage() {
     }
   }
 
+  function handleBoardMove(move: BoardMove): boolean {
+    const chess = new Chess(currentNode.fen);
+
+    const result = chess.move({
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion ?? "q",
+    });
+
+    if (!result) return false;
+
+    const { root: updatedRoot, newNode } = addMoveImmutable(
+      root,
+      currentNode.id,
+      result.san,
+      chess.fen(),
+    );
+
+    setRoot(updatedRoot);
+    setCurrentNodeId(newNode.id);
+
+    return true;
+  }
+
+  const currentNode = findNode(root, currentNodeId) ?? root;
+
   return (
     <main className="min-h-screen bg-[#F8F7F4] flex items-center justify-center p-8">
       <div className="flex gap-8 w-full max-w-5xl">
-        {/* Left — Board + Input */}
         <div className="flex flex-col gap-4 flex-shrink-0">
           <div className="rounded-lg overflow-hidden shadow-md">
-            <Board fen={fens[currentMoveIndex] ?? DEFAULT_FEN} />
+            <Board fen={currentNode.fen} onMove={handleBoardMove} />
             {isLoading && (
               <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 rounded-lg">
                 <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
@@ -76,27 +122,23 @@ export default function GamePage() {
           />
         </div>
 
-        {/* Right — Move List */}
         <div className="flex flex-col flex-1 gap-3">
           <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-widest">
             Moves
           </h2>
           <div className="flex-1 rounded-lg overflow-hidden border border-[#E5E5E5] bg-white shadow-sm">
             <MoveList
-              moves={moves}
-              currentMoveIndex={currentMoveIndex}
-              onMoveClick={setCurrentMoveIndex}
-              analysis={analysis?.analysis}
+              root={root}
+              currentNodeId={currentNodeId}
+              onNodeClick={setCurrentNodeId}
             />
           </div>
 
-          {analysis?.analysis[currentMoveIndex]?.commentary && (
-            <Commentary
-              commentary={analysis.analysis[currentMoveIndex].commentary}
-            />
+          {currentNode.analysis?.commentary && (
+            <Commentary commentary={currentNode.analysis.commentary} />
           )}
 
-          {analysis?.summary && <Summary summary={analysis.summary} />}
+          {summary && <Summary summary={summary} />}
         </div>
       </div>
     </main>

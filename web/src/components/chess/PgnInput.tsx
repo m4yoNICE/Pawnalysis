@@ -1,7 +1,6 @@
 "use client";
 import { PgnInputProps } from "@/lib/Types";
 
-
 export default function PgnInput({
   pgn,
   onChange,
