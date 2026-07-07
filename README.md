@@ -49,6 +49,20 @@ npm install
 npm run dev
 ```
 ---
+### Docker
+Runs the FastAPI backend, .NET API, and Next.js frontend together.
+```bash
+cp .env.example .env   # fill in GROQ_API_KEY
+docker compose up --build
+```
+| Service         | URL                          |
+| ---------------- | ----------------------------- |
+| Frontend         | http://localhost:3000        |
+| FastAPI backend  | http://localhost:8000/docs   |
+| .NET API         | http://localhost:5190        |
+
+The FastAPI image installs Stockfish via `apt`, so no manual binary download is needed in Docker.
+---
 ### Deactivating the virtual environment
 ```bash
 deactivate
