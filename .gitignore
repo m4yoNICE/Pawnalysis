@@ -12,13 +12,6 @@ web/.next/
 web/.env.local
 web/.env
 
-# .NET
-pawnalysis-backend/API/bin/
-pawnalysis-backend/API/obj/
-
-# Docker
-.env
-
 # OS
 .DS_Store
 *.swp
