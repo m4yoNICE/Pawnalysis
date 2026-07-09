@@ -35,7 +35,7 @@ export interface AnalyzeResponse {
 export interface BoardMove {
   from: Square;
   to: Square;
-  promotion?: string;
+  promotion?: "q" | "r" | "b" | "n";
 }
 
 export interface BoardProps {
