@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Chess } from "chess.js";
 
-// Components
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
 import PgnInput from "@/components/chess/PgnInput";
 import Summary from "@/components/chess/Summary";
 import Commentary from "@/components/chess/Commentary";
 
-// Types & Utils
 import { parsePgn, getMoves, getFens } from "@/lib/utils/pgn";
 import {
   createRoot,
@@ -26,12 +24,13 @@ const DEFAULT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 export default function GamePage() {
   const [pgn, setPgn] = useState("");
-  const [testFen, setTestFen] = useState(DEFAULT_FEN);
   const [cleanPgn, setCleanPgn] = useState("");
   const [root, setRoot] = useState<MoveNode>(() => createRoot(DEFAULT_FEN));
   const [currentNodeId, setCurrentNodeId] = useState<string>(root.id);
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const currentNode = findNode(root, currentNodeId) ?? root;
 
   function handlePgnChange(value: string) {
     setPgn(value);
@@ -54,52 +53,50 @@ export default function GamePage() {
       const formatted = parsePgn(pgn);
       setCleanPgn(formatted);
 
-      const newRoot = buildTreeFromPgn(
-        DEFAULT_FEN,
-        getMoves(pgn),
-        getFens(pgn),
-      );
+      const newRoot = buildTreeFromPgn(DEFAULT_FEN, getMoves(pgn), getFens(pgn));
       setRoot(newRoot);
       setCurrentNodeId(newRoot.id);
 
       setIsLoading(true);
       const result: AnalyzeResponse = await Api.analyzeGame(formatted);
 
-      const annotatedRoot = attachAnalysisByFen(newRoot, result.analysis);
-      setRoot(annotatedRoot);
+      setRoot((currentRoot) => attachAnalysisByFen(currentRoot, result.analysis));
       setSummary(result.summary);
     } catch (e) {
       console.error("Error:", e);
     } finally {
       setIsLoading(false);
     }
-  }
+  } 
 
-  function handleBoardMove(move: BoardMove): boolean {
-    const chess = new Chess(currentNode.fen);
+function handleBoardMove(move: BoardMove): boolean {
+  if (move.from === move.to) return false;
 
-    const result = chess.move({
+  const chess = new Chess(currentNode.fen);
+
+  let result;
+  try {
+    result = chess.move({
       from: move.from,
       to: move.to,
       promotion: move.promotion ?? "q",
     });
-
-    if (!result) return false;
-
-    const { root: updatedRoot, newNode } = addMoveImmutable(
-      root,
-      currentNode.id,
-      result.san,
-      chess.fen(),
-    );
-
-    setRoot(updatedRoot);
-    setCurrentNodeId(newNode.id);
-
-    return true;
+  } catch {
+    return false; 
   }
 
-  const currentNode = findNode(root, currentNodeId) ?? root;
+  const { root: updatedRoot, newNode } = addMoveImmutable(
+    root,
+    currentNode.id,
+    result.san,
+    chess.fen(),
+  );
+
+  setRoot(updatedRoot);
+  setCurrentNodeId(newNode.id);
+
+  return true;
+}
 
   return (
     <main className="min-h-screen bg-[#F8F7F4] flex items-center justify-center p-8">
