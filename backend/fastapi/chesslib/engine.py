@@ -1,12 +1,9 @@
 from stockfish import Stockfish
 import chess
 import math
-import os
-
-STOCKFISH_PATH = os.getenv("STOCKFISH_PATH", "stockfish/stockfish-windows-x86-64-avx2.exe")
 
 engine = Stockfish(
-    path=STOCKFISH_PATH,
+    path="stockfish/stockfish-windows-x86-64-avx2.exe",
     depth=12,
     parameters={
         "Threads": 4,
