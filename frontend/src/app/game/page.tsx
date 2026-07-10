@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Chess } from "chess.js";
 
 import Board from "@/components/chess/Board";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/utils/tree";
 import Api from "@/lib/services/Api";
 import { AnalyzeResponse, MoveNode, BoardMove } from "@/lib/Types";
+import { getEmail, clearSession } from "@/lib/auth";
 
 const DEFAULT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -29,6 +31,11 @@ export default function GamePage() {
   const [currentNodeId, setCurrentNodeId] = useState<string>(root.id);
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEmail(getEmail());
+  }, []);
 
   const currentNode = findNode(root, currentNodeId) ?? root;
 
@@ -99,7 +106,27 @@ function handleBoardMove(move: BoardMove): boolean {
 }
 
   return (
-    <main className="min-h-screen bg-[#F8F7F4] flex items-center justify-center p-8">
+    <main className="min-h-screen bg-[#F8F7F4] flex flex-col items-center p-8 gap-4">
+      <div className="w-full max-w-5xl flex justify-end items-center text-sm">
+        {email ? (
+          <div className="flex items-center gap-3">
+            <span className="text-[#6B6B6B]">{email}</span>
+            <button
+              onClick={() => {
+                clearSession();
+                setEmail(null);
+              }}
+              className="text-[#575068] hover:underline"
+            >
+              Log out
+            </button>
+          </div>
+        ) : (
+          <Link href="/login" className="text-[#575068] hover:underline">
+            Log in to save games
+          </Link>
+        )}
+      </div>
       <div className="flex gap-8 w-full max-w-5xl">
         <div className="flex flex-col gap-4 flex-shrink-0">
           <div className="rounded-lg overflow-hidden shadow-md">
