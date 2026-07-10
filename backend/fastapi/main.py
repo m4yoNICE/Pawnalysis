@@ -8,7 +8,6 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-# logging purposes
 import logging
 import time
 logging.basicConfig(level=logging.INFO)
@@ -29,44 +28,45 @@ app.add_middleware(
 async def analyze(request: AnalyzeRequest):
     logger.info("Request received")
     start = time.time()
-    
+
     positions = parse_pgn(request.pgn)
     if not positions:
         return {"status": "ok", "analysis": [], "summary": ""}
-        
+
     results = []
-    
-    # 1. Establish the baseline evaluation using the starting position FEN
+
     initial_fen = positions[0]["board_before"].fen()
     current_analysis = analyze_position(initial_fen)
-    
+
     for i, position in enumerate(positions):
         move_start = time.time()
-        
+
         # Extract metadata from the position BEFORE the move occurred
         eval_before = current_analysis["evaluation"]
-        is_mate_before = eval_before["type"] == "mate"
-        cp_best = 30000 if is_mate_before and eval_before["value"] > 0 else (-30000 if is_mate_before else eval_before["value"])
         top_moves_before = current_analysis["top_moves"]
-        
+
         # 2. Run engine on the position AFTER the move occurred
         next_analysis = analyze_position(position["fen"])
         eval_after = next_analysis["evaluation"]
-        is_mate_after = eval_after["type"] == "mate"
-        cp_after = 30000 if is_mate_after and eval_after["value"] > 0 else (-30000 if is_mate_after else eval_after["value"])
-        
-        # 3. Safely pass both context layers to the classifier
+
+        # 3. Pass eval_before/eval_after straight through - real mate depth
+        # is preserved, classify_move handles mate transitions itself.
         classification, symbol = classify_move(
             position["board_before"],
             position["move"],
-            cp_best,
-            is_mate_before,
-            cp_after,
-            is_mate_after,
+            eval_before,
+            eval_after,
             top_moves_before
         )
-        
-        # Build payload structure cleanly
+
+        # Raw eval in vs classification out - for eyeballing accuracy.
+        mover = "White" if position["board_before"].turn else "Black"
+        logger.info(
+            f"Move {i+1} [{mover}] {position['move'].uci()} | "
+            f"before={eval_before} after={eval_after} | "
+            f"-> {classification} {symbol}"
+        )
+
         move_data = {
             "fen": position["fen"],
             "move": position["move"].uci(),
@@ -77,8 +77,7 @@ async def analyze(request: AnalyzeRequest):
             "top_moves": next_analysis["top_moves"]
         }
         results.append(move_data)
-        
-        # Shift reference frame forward for next iteration
+
         current_analysis = next_analysis
         logger.info(f"Move {i+1} done in {time.time() - move_start:.2f}s")
 
@@ -90,9 +89,10 @@ async def analyze(request: AnalyzeRequest):
 
     for i in range(len(results)):
         results[i]["commentary"] = commentaries[i]
-    
+
     logger.info(f"Request complete in {time.time() - start:.2f}s")
     return {"status": "ok", "analysis": results, "summary": summary}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

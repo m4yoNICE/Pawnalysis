@@ -36,11 +36,80 @@ def cp_to_win_prob(cp, is_mate=False):
     cp = max(min(cp, 2000), -2000)
     return (50 + 50 * (2 / (1 + math.exp(-0.00368208 * cp)) - 1)) / 100
 
-def classify_move(board_before, move, cp_best, is_mate_before, cp_after, is_mate_after, top_moves_before):
-    # 1. Calculate Expected Points (EP) from White's perspective
-    ep_before = cp_to_win_prob(cp_best, is_mate_before)
-    ep_after = cp_to_win_prob(cp_after, is_mate_after)
-    
+def _mate_transition_result(board_before, eval_before, eval_after):
+    """
+    Lichess-aligned mate transition handling (Advice.scala MateAdvice), kept
+    structurally separate from the win%-delta CpAdvice path. Only invoked
+    when mate is present on either side of the move. Returns a
+    (classification, symbol) tuple, or None if this is a pure cp-vs-cp
+    transition that should fall through to the normal win%-delta logic.
+
+    All *_mover values below are in the MOVING PLAYER's perspective
+    (positive = good for the player who just moved), not White's.
+    """
+    before_is_mate = eval_before["type"] == "mate"
+    after_is_mate = eval_after["type"] == "mate"
+    if not before_is_mate and not after_is_mate:
+        return None
+
+    sign = 1 if board_before.turn == chess.WHITE else -1
+    before_val_mover = eval_before["value"] * sign
+    after_val_mover = eval_after["value"] * sign
+
+    if before_is_mate and after_is_mate:
+        before_mate_for_mover = before_val_mover > 0
+        after_mate_for_mover = after_val_mover > 0
+        if before_mate_for_mover and not after_mate_for_mover:
+            # MateLost, flipped straight to the opponent's forced mate.
+            return ("blunder", "??")
+        # Mate persists (same side) or opponent already had mate and still
+        # does: lichess emits no advice at all for these. Our app always
+        # classifies every move, so the closest honest equivalent is "best"
+        # (i.e. explicitly NOT flagged as a mistake of any size).
+        return ("best", "")
+
+    if not before_is_mate and after_is_mate:
+        # MateCreated: only a loss if the new mate is against the mover.
+        if after_val_mover >= 0:
+            # Mover just forced mate themselves - good news, not a loss.
+            return ("best", "")
+        prev_cp_mover = before_val_mover
+        if prev_cp_mover < -999:
+            return ("inaccuracy", "?!")
+        if prev_cp_mover < -700:
+            return ("mistake", "?")
+        return ("blunder", "??")
+
+    # before_is_mate and not after_is_mate: MateLost (or mate escaped).
+    if before_val_mover > 0:
+        next_cp_mover = after_val_mover
+        if next_cp_mover > 999:
+            return ("inaccuracy", "?!")
+        if next_cp_mover > 700:
+            return ("mistake", "?")
+        return ("blunder", "??")
+    # Opponent had the mate, mover escaped it - good news, not a loss.
+    return ("best", "")
+
+
+def classify_move(board_before, move, eval_before, eval_after, top_moves_before):
+    """
+    eval_before / eval_after: {"type": "cp"|"mate", "value": <signed, White's
+    perspective>} - the same dicts analyze_position() returns. Real mate
+    depth is preserved all the way through; no flattening happens upstream
+    in main.py anymore.
+    """
+    # 0. Mate-transition cases are handled on a completely separate path
+    #    from the win%-delta classifier, matching lichess's
+    #    CpAdvice orElse MateAdvice structure.
+    mate_result = _mate_transition_result(board_before, eval_before, eval_after)
+    if mate_result is not None:
+        return mate_result
+
+    # 1. Both positions are plain cp evals - normal win%-delta path.
+    ep_before = cp_to_win_prob(eval_before["value"])
+    ep_after = cp_to_win_prob(eval_after["value"])
+
     # 2. Compute true EP loss based on whose turn it actually was
     if board_before.turn == chess.WHITE:
         ep_loss = max(0.0, ep_before - ep_after)
@@ -51,14 +120,14 @@ def classify_move(board_before, move, cp_best, is_mate_before, cp_after, is_mate
     if len(top_moves_before) > 1:
         m0_cp, m0_mate = top_moves_before[0].get('Centipawn'), top_moves_before[0].get('Mate')
         m1_cp, m1_mate = top_moves_before[1].get('Centipawn'), top_moves_before[1].get('Mate')
-        
+
         sign_before = 1 if board_before.turn == chess.WHITE else -1
         m0_val = 30000 if m0_mate and m0_mate > 0 else (-30000 if m0_mate else (m0_cp or 0) * sign_before)
         m1_val = 30000 if m1_mate and m1_mate > 0 else (-30000 if m1_mate else (m1_cp or 0) * sign_before)
-        
+
         ep_m0 = cp_to_win_prob(m0_val, m0_mate is not None)
         ep_m1 = cp_to_win_prob(m1_val, m1_mate is not None)
-        
+
         gap = (ep_m0 - ep_m1) if board_before.turn == chess.WHITE else (ep_m1 - ep_m0)
         if gap > 0.15 and ep_loss < 0.02:
             return "great", "!"
