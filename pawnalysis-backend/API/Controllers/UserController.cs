@@ -19,7 +19,7 @@ namespace API.Controllers
             _userService = userService;
         }
 
-        [HttpPost("register")]
+        [HttpPost("Register")]
         public async Task<IActionResult> Register (RegisterDTO request)
         {
             try
@@ -36,7 +36,7 @@ namespace API.Controllers
             
         } 
 
-        [HttpPost("login")]
+        [HttpPost("Login")]
         public async Task<IActionResult> Login (LoginDTO request)
         {
             var result = await _userService.LoginAsync(request);

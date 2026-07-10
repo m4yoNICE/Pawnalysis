@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import Scoresheet from "@/components/marketing/Scoresheet";
+import Pricing from "@/components/marketing/Pricing";
 
 const gradedFeatures = [
   {
@@ -41,7 +42,7 @@ const steps = [
   },
 ];
 
-export default function Home() {
+const Home = () => {
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <Header />
@@ -145,23 +146,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA — quiet, one bold moment already spent in the hero */}
-      <section className="border-t border-[#E7E0F3] bg-[#F3EFFE] py-16">
-        <div className="mx-auto max-w-6xl px-6 text-center">
-          <h2 className="font-mono text-2xl font-semibold tracking-tight text-[#1A1A1A] sm:text-3xl">
-            Your last game is still worth a second look.
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-[#6B6B6B]">
-            No account needed to analyze. Sign in only if you want to keep it.
-          </p>
-          <Link
-            href="/game"
-            className="mt-7 inline-block rounded-lg bg-[#6A5E8C] px-6 py-3 text-sm font-semibold text-white shadow-sm shadow-[#6A5E8C]/20 transition-colors hover:bg-[#584D77]"
-          >
-            Analyze a game
-          </Link>
-        </div>
-      </section>
+      <Pricing />
 
       {/* Footer */}
       <footer className="border-t border-[#E7E0F3]">
@@ -177,3 +162,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default Home;

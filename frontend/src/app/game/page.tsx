@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { Chess } from "chess.js";
 
+import Header from "@/components/Header";
 import Board from "@/components/chess/Board";
 import MoveList from "@/components/chess/MoveList";
 import PgnInput from "@/components/chess/PgnInput";
@@ -20,7 +20,6 @@ import {
 } from "@/lib/utils/tree";
 import Api from "@/lib/services/Api";
 import { AnalyzeResponse, MoveNode, BoardMove } from "@/lib/Types";
-import { getEmail, clearSession } from "@/lib/auth";
 
 const DEFAULT_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -31,11 +30,6 @@ export default function GamePage() {
   const [currentNodeId, setCurrentNodeId] = useState<string>(root.id);
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    setEmail(getEmail());
-  }, []);
 
   const currentNode = findNode(root, currentNodeId) ?? root;
 
@@ -106,65 +100,80 @@ function handleBoardMove(move: BoardMove): boolean {
 }
 
   return (
-    <main className="min-h-screen bg-[#F8F7F4] flex flex-col items-center p-8 gap-4">
-      <div className="w-full max-w-5xl flex justify-end items-center text-sm">
-        {email ? (
-          <div className="flex items-center gap-3">
-            <span className="text-[#6B6B6B]">{email}</span>
-            <button
-              onClick={() => {
-                clearSession();
-                setEmail(null);
-              }}
-              className="text-[#575068] hover:underline"
-            >
-              Log out
-            </button>
+    <div className="flex min-h-screen flex-col bg-white">
+      <Header />
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+        {/* Page heading — same scoresheet-header motif as the landing hero */}
+        <div>
+          <p className="font-mono text-xs tracking-wide text-[#B3ABC9]">
+            [Event &quot;Post-game review&quot;]
+          </p>
+          <h1 className="mt-2 font-mono text-2xl font-semibold tracking-tight text-[#1A1A1A] sm:text-3xl">
+            Analyze a game
+          </h1>
+        </div>
+
+        <div className="mt-8 grid gap-8 lg:grid-cols-[560px_1fr]">
+          {/* Board + PGN input */}
+          <div className="flex flex-col gap-4">
+            <div className="relative overflow-hidden rounded-lg border border-[#E7E0F3] shadow-sm">
+              <Board fen={currentNode.fen} onMove={handleBoardMove} />
+              {isLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-black/50">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent" />
+                  <p className="text-sm font-semibold text-white">
+                    Analyzing...
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-3 rounded-lg border border-[#E7E0F3] bg-[#FBFAFE] p-4">
+              <PgnInput
+                pgn={pgn}
+                onChange={handlePgnChange}
+                onAnalyze={handleAnalyze}
+                isLoading={isLoading}
+              />
+            </div>
           </div>
-        ) : (
-          <Link href="/login" className="text-[#575068] hover:underline">
-            Log in to save games
-          </Link>
-        )}
-      </div>
-      <div className="flex gap-8 w-full max-w-5xl">
-        <div className="flex flex-col gap-4 flex-shrink-0">
-          <div className="rounded-lg overflow-hidden shadow-md">
-            <Board fen={currentNode.fen} onMove={handleBoardMove} />
-            {isLoading && (
-              <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2 rounded-lg">
-                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                <p className="text-white text-sm font-semibold">Analyzing...</p>
+
+          {/* Moves, commentary, summary */}
+          <div className="flex min-w-0 flex-col gap-4">
+            <div>
+              <p className="font-mono text-xs tracking-wide text-[#B3ABC9]">
+                [Moves]
+              </p>
+              <div className="mt-2 overflow-hidden rounded-lg border border-[#E7E0F3] shadow-sm">
+                <MoveList
+                  root={root}
+                  currentNodeId={currentNodeId}
+                  onNodeClick={setCurrentNodeId}
+                />
+              </div>
+            </div>
+
+            {currentNode.analysis?.commentary && (
+              <div className="rounded-lg border border-[#E7E0F3] bg-[#FBFAFE] p-4">
+                <Commentary commentary={currentNode.analysis.commentary} />
               </div>
             )}
+
+            {summary && <Summary summary={summary} />}
           </div>
-          <PgnInput
-            pgn={pgn}
-            onChange={handlePgnChange}
-            onAnalyze={handleAnalyze}
-            isLoading={isLoading}
-          />
         </div>
+      </main>
 
-        <div className="flex flex-col flex-1 gap-3">
-          <h2 className="text-sm font-semibold text-[#6B6B6B] uppercase tracking-widest">
-            Moves
-          </h2>
-          <div className="flex-1 rounded-lg overflow-hidden border border-[#E5E5E5] bg-white shadow-sm">
-            <MoveList
-              root={root}
-              currentNodeId={currentNodeId}
-              onNodeClick={setCurrentNodeId}
-            />
-          </div>
-
-          {currentNode.analysis?.commentary && (
-            <Commentary commentary={currentNode.analysis.commentary} />
-          )}
-
-          {summary && <Summary summary={summary} />}
+      <footer className="border-t border-[#E7E0F3]">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
+          <span className="font-mono text-sm font-semibold text-[#1A1A1A]">
+            Pawn<span className="text-[#7B6FA0]">alysis</span>
+          </span>
+          <p className="text-xs text-[#9B9B9B]">
+            Built with Stockfish &amp; AI commentary.
+          </p>
         </div>
-      </div>
-    </main>
+      </footer>
+    </div>
   );
 }

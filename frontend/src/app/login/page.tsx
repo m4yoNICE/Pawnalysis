@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import AuthApi from "@/lib/services/AuthApi";
+import { saveSession } from "@/lib/auth";
 
 const SPECIMEN_MOVES = [
   "1. e4 e5",
@@ -14,13 +18,35 @@ const SPECIMEN_MOVES = [
 ];
 
 export default function LoginPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   function handleSubmit(e: React.SubmitEvent) {
     e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    const request =
+      mode === "login"
+        ? AuthApi.login({ email, password })
+        : AuthApi.register({ email, password });
+
+    request
+      .then((auth) => {
+        saveSession(auth.token, auth.email);
+        router.push("/game");
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }
 
   return (
@@ -156,11 +182,20 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
             <button
               type="submit"
-              className="w-full py-2.5 mt-2 bg-[#6A5E8C] hover:bg-[#584D77] text-white text-sm font-semibold rounded-lg shadow-sm shadow-[#6A5E8C]/20 transition-colors"
+              disabled={isLoading}
+              className="w-full py-2.5 mt-2 bg-[#6A5E8C] hover:bg-[#584D77] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shadow-sm shadow-[#6A5E8C]/20 transition-colors"
             >
-              {mode === "login" ? "Log in" : "Create account"}
+              {isLoading
+                ? mode === "login"
+                  ? "Logging in..."
+                  : "Creating account..."
+                : mode === "login"
+                  ? "Log in"
+                  : "Create account"}
             </button>
           </form>
 
