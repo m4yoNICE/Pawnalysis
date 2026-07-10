@@ -57,6 +57,21 @@ export interface CommentaryProps {
   commentary: string;
 }
 
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  email: string;
+}
+
 export interface PgnInputProps {
   pgn: string;
   onChange: (pgn: string) => void;
